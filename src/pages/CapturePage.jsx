@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
-import '../styles/CapturePage.css';
-import { Camera } from 'lucide-react';
+import { useRef, useState, useEffect } from "react";
+import "../styles/CapturePage.css";
+import { Camera, Repeat2 } from "lucide-react";
 
 export default function CapturePage() {
   const videoRef = useRef(null);
@@ -8,12 +8,13 @@ export default function CapturePage() {
   const [preview, setPreview] = useState(null);
   const [stream, setStream] = useState(null);
   const [cameraActive, setCameraActive] = useState(true);
+  const [isMirrored, setIsMirrored] = useState(true);
 
   useEffect(() => {
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user' },
+          video: { facingMode: "user" },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -21,15 +22,15 @@ export default function CapturePage() {
         setStream(mediaStream);
         setCameraActive(true);
       } catch (err) {
-        console.error('Camera access denied:', err);
+        console.error("Camera access denied:", err);
         setCameraActive(false);
       }
     };
-    
+
     if (!preview) {
       startCamera();
     }
-    
+
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
@@ -37,36 +38,73 @@ export default function CapturePage() {
     };
   }, [preview]);
 
+  // const takePhoto = () => {
+  //   if (videoRef.current && canvasRef.current) {
+  //     const video = videoRef.current;
+  //     const canvas = canvasRef.current;
+
+  //     canvas.width = video.videoWidth;
+  //     canvas.height = video.videoHeight;
+
+  //     const context = canvas.getContext("2d");
+
+  //     context.save(); // ✅ Save the current context state
+
+  //     if (isMirrored) {
+  //       context.translate(canvas.width, 0);
+  //       context.scale(-1, 1);
+  //     }
+
+  //     context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  //     context.restore(); // ✅ Restore to avoid affecting future drawings
+
+  //     const dataUrl = canvas.toDataURL("image/png");
+  //     setPreview(dataUrl);
+
+  //     if (stream) {
+  //       stream.getTracks().forEach((track) => track.stop());
+  //     }
+  //   }
+  // };
+
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
-      // Set canvas dimensions to match video
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
-      const context = canvas.getContext('2d');
+
+      const context = canvas.getContext("2d");
+      context.save();
+
+      if (isMirrored) {
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+      }
+
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/png');
+      context.restore();
+
+      const dataUrl = canvas.toDataURL("image/png");
       setPreview(dataUrl);
-      
-      // Stop the camera stream after taking photo
+
       if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       }
     }
   };
 
   const confirmPhoto = () => {
-    console.log('Photo confirmed!');
-    console.log(preview);
-    // Here you would typically send the photo somewhere or save it
+    console.log("Photo confirmed!", preview);
   };
 
   const retakePhoto = () => {
     setPreview(null);
-    // The camera will restart in the useEffect when preview is null
+  };
+
+  const toggleMirror = () => {
+    setIsMirrored((prev) => !prev);
   };
 
   return (
@@ -74,7 +112,7 @@ export default function CapturePage() {
       <div className="capture-content">
         <h1 className="capture-title">TAKE A SELFIE</h1>
         <p className="capture-subtitle">Photo Booth App</p>
-        
+
         <div className="logo-container">
           <div className="camera-logo">
             <div className="camera-icon">
@@ -82,31 +120,70 @@ export default function CapturePage() {
             </div>
           </div>
         </div>
-        
-        <div className="preview-container">
+
+        {/* <div className="preview-container">
           {preview ? (
-            <img src={preview} alt="Captured selfie" className="preview-image" />
+            <img
+              src={preview}
+              alt="Captured selfie"
+              className={`preview-image ${isMirrored ? "mirrored" : ""}`}
+            />
           ) : (
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted 
-              className="camera-preview"
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`camera-preview ${isMirrored ? "mirrored" : ""}`}
             />
           )}
+
+          {!preview && (
+            <button className="mirror-icon-btn" onClick={toggleMirror}>
+              <Repeat2 size={20} />
+            </button>
+          )}
+        </div> */}
+
+        <div className="preview-container">
+          {preview ? (
+            <img
+              src={preview}
+              alt="Captured selfie"
+              className="preview-image" // ❌ removed "mirrored" class here
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`camera-preview ${isMirrored ? "mirrored" : ""}`}
+            />
+          )}
+
+          {!preview && (
+            <button className="mirror-icon-btn" onClick={toggleMirror}>
+              <Repeat2 size={20} />
+            </button>
+          )}
         </div>
-        
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-        
+
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
         <div className="buttons-container">
           {!preview ? (
-            <button className="take-photo-btn" onClick={takePhoto} disabled={!cameraActive}>
-              <Camera size={24} />
-              <span>TAKE PHOTO</span>
-            </button>
+            <div className="camera-controls-inside">
+              <button
+                className="capture-circle-btn"
+                onClick={takePhoto}
+                disabled={!cameraActive}
+              >
+                <Camera size={24} />
+              </button>
+            </div>
           ) : (
-            <div className="confirm-buttons">
+            <div className="confirm-retake-controls">
               <button className="confirm-btn" onClick={confirmPhoto}>
                 ✅ Confirm
               </button>

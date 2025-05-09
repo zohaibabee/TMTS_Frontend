@@ -1,6 +1,6 @@
 .capture-container {
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 20px); /* slightly less than full screen */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,15 +9,52 @@
   overflow: hidden;
 }
 
+.mirrored {
+  transform: scaleX(-1);
+}
+
+.mirror-icon-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  transition: background-color 0.3s;
+}
+
+.mirror-icon-btn:hover {
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.preview-container {
+  position: relative;
+  width: 100%;
+  max-height: 700px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  margin: 10px 0;
+  background-color: #1e2a35;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .capture-content {
   width: 100%;
-  max-width: 500px;
+  max-width: 1150px;
   height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 10px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .capture-title {
@@ -51,16 +88,23 @@
   justify-content: center;
   align-items: center;
   position: relative;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .camera-logo::before {
-  content: '';
+  content: "";
   position: absolute;
   width: 110px;
   height: 55px;
   border-radius: 55px 55px 0 0;
-  background: linear-gradient(90deg, #ff5252 0%, #ffaa00 25%, #4caf50 50%, #2196f3 75%, #3f51b5 100%);
+  background: linear-gradient(
+    90deg,
+    #ff5252 0%,
+    #ffaa00 25%,
+    #4caf50 50%,
+    #2196f3 75%,
+    #3f51b5 100%
+  );
   top: -15px;
   z-index: 0;
 }
@@ -85,7 +129,7 @@
 }
 
 .camera-person::after {
-  content: '';
+  content: "";
   position: absolute;
   width: 60px;
   height: 30px;
@@ -95,19 +139,8 @@
   left: -10px;
 }
 
-.preview-container {
-  width: 100%;
-  flex: 1;
-  min-height: 0;
-  max-height: 40vh;
-  overflow: hidden;
-  border-radius: 12px;
-  margin: 10px 0;
-  background-color: #1e2a35;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.camera-preview, .preview-image {
+.camera-preview,
+.preview-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -126,7 +159,7 @@
   align-items: center;
   gap: 10px;
   transition: background-color 0.3s;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   margin-bottom: 10px;
 }
 
@@ -147,7 +180,8 @@
   justify-content: center;
 }
 
-.confirm-btn, .retake-btn {
+.confirm-btn,
+.retake-btn {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
@@ -182,28 +216,29 @@
   .capture-title {
     font-size: 1.8rem;
   }
-  
+
   .camera-logo {
     width: 80px;
     height: 80px;
   }
-  
+
   .camera-logo::before {
     width: 100px;
     height: 50px;
   }
-  
+
   .camera-icon {
     width: 50px;
     height: 50px;
   }
-  
+
   .take-photo-btn {
     padding: 10px 24px;
     font-size: 0.9rem;
   }
-  
-  .confirm-btn, .retake-btn {
+
+  .confirm-btn,
+  .retake-btn {
     padding: 10px 20px;
     font-size: 0.9rem;
   }
@@ -213,45 +248,115 @@
   .capture-title {
     font-size: 1.6rem;
   }
-  
+
   .capture-subtitle {
     font-size: 0.9rem;
     margin-bottom: 2px;
   }
-  
+
   .logo-container {
     margin: 5px 0;
   }
-  
+
   .camera-logo {
     width: 70px;
     height: 70px;
   }
-  
+
   .camera-logo::before {
     width: 90px;
     height: 45px;
     top: -12px;
   }
-  
+
   .camera-icon {
     width: 45px;
     height: 45px;
   }
-  
+
   .camera-person {
     width: 25px;
     height: 25px;
   }
-  
+
   .camera-person::after {
     width: 40px;
     height: 20px;
     bottom: -7px;
     left: -7px;
   }
-  
+
   .preview-container {
     margin: 5px 0;
   }
+}
+
+.camera-controls-inside {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+.capture-circle-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  background-color: white;
+  color: #1e2a35;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: background-color 0.3s;
+}
+
+.capture-circle-btn:hover {
+  background-color: #f0f0f0;
+}
+
+.confirm-retake-controls {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 5;
+}
+
+.confirm-btn,
+.retake-btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s;
+}
+
+.confirm-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.confirm-btn:hover {
+  background-color: #388e3c;
+}
+
+.retake-btn {
+  background-color: #fbbc04;
+  color: white;
+}
+
+.retake-btn:hover {
+  background-color: #f9a825;
 }

@@ -61,3 +61,23 @@
   opacity: 1;
   border: 2px solid #fff;
 }
+
+.fullscreen-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #ffffff10;
+  border: 2px solid white;
+  color: white;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 20;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.fullscreen-btn:hover {
+  background: #ffffff20;
+  transform: scale(1.05);
+}
