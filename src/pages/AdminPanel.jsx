@@ -1,23 +1,68 @@
-import { useState, useEffect } from 'react';
-import '../styles/AdminPanel.css';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminPanel() {
   const [form, setForm] = useState({
-    businessName: '',
-    businessAddress: '',
-    hashtags: '',
-    captions: [''],
+    businessName: "",
+    businessAddress: "",
+    hashtags: "",
+    captions: ["", "", "", "", ""],
     photoLimit: 15,
     interval: 5,
-    pageTitle: '',
-    logo: '',
-    background: ''
+    pageTitle: "",
+    logo: "",
+    background: "",
   });
 
+  const navigate = useNavigate();
+
+  // ✅ Check auth on load
   useEffect(() => {
-    const saved = localStorage.getItem('adminSettings');
-    if (saved) setForm(JSON.parse(saved));
-  }, []);
+    const token = localStorage.getItem("token");
+    const expiry = localStorage.getItem("token_expiry");
+
+    if (!token || !expiry || Date.now() > parseInt(expiry)) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("token_expiry");
+      navigate("/login");
+      return;
+    }
+
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/admin/settings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Unauthorized");
+        return res.json();
+      })
+      .then((data) => {
+        setForm({
+          businessName: data.business_name,
+          businessAddress: data.business_address,
+          hashtags: data.hashtags,
+          captions: data.caption_templates,
+          photoLimit: data.max_photos,
+          interval: data.post_interval_minutes,
+          pageTitle: data.page_title,
+          // logo: data.logo_filename || "",
+          logo: data.logo_filename
+            ? `${import.meta.env.VITE_API_BASE_URL}${data.logo_filename}`
+            : "",
+          // background: data.background_filename || "",
+          background: data.background_filename
+            ? `${import.meta.env.VITE_API_BASE_URL}${data.background_filename}`
+            : "",
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to load settings", err);
+        localStorage.removeItem("token");
+        localStorage.removeItem("token_expiry");
+        navigate("/login");
+      });
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -31,7 +76,7 @@ export default function AdminPanel() {
 
   const addCaptionField = () => {
     if (form.captions.length < 5) {
-      setForm({ ...form, captions: [...form.captions, ''] });
+      setForm({ ...form, captions: [...form.captions, ""] });
     }
   };
 
@@ -41,50 +86,131 @@ export default function AdminPanel() {
     setForm({ ...form, captions: updated });
   };
 
-  const handleFileChange = (e, key) => {
+  const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setForm({ ...form, [key]: reader.result });
-    };
-    reader.readAsDataURL(file);
+
+    const uploadUrl =
+      type === "logo"
+        ? `${import.meta.env.VITE_API_BASE_URL}/api/admin/upload/logo`
+        : `${import.meta.env.VITE_API_BASE_URL}/api/admin/upload/background`;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
+      setForm({ ...form, [type]: data.url });
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Upload failed. Try again.");
+    }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    localStorage.setItem('adminSettings', JSON.stringify(form));
-    alert('Settings saved successfully!');
+
+    const formData = new FormData();
+    formData.append("business_name", form.businessName);
+    formData.append("business_address", form.businessAddress);
+    formData.append("hashtags", form.hashtags);
+    form.captions.forEach((caption) =>
+      formData.append("caption_templates", caption)
+    );
+    formData.append("max_photos", form.photoLimit);
+    formData.append("post_interval_minutes", form.interval);
+    formData.append("page_title", form.pageTitle);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/admin/settings`,
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to save settings");
+      alert("Settings saved successfully!");
+    } catch (err) {
+      console.error("Save failed", err);
+      alert("Failed to save settings.");
+    }
   };
 
   return (
-    <div className="admin-container">
-      <form className="form-box" onSubmit={handleSave}>
-        <h2 className="form-title">Admin Panel</h2>
+    <div className="flex justify-center px-4 py-12 bg-gray-100 min-h-screen">
+      <form
+        className="bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-xl"
+        onSubmit={handleSave}
+      >
+        <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+          Admin Panel
+        </h2>
 
-        <label>Business Name</label>
-        <input type="text" name="businessName" value={form.businessName} onChange={handleChange} />
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Business Name
+        </label>
+        <input
+          type="text"
+          name="businessName"
+          value={form.businessName}
+          onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-        <label>Business Address</label>
-        <input type="text" name="businessAddress" value={form.businessAddress} onChange={handleChange} />
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Business Address
+        </label>
+        <input
+          type="text"
+          name="businessAddress"
+          value={form.businessAddress}
+          onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-        <label>Hashtags (comma-separated)</label>
-        <input type="text" name="hashtags" value={form.hashtags} onChange={handleChange} />
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Hashtags (comma-separated)
+        </label>
+        <input
+          type="text"
+          name="hashtags"
+          value={form.hashtags}
+          onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-        <label>Caption Templates</label>
-        <div className="caption-list">
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Caption Templates
+        </label>
+        <div className="space-y-3 mt-2">
           {form.captions.map((caption, index) => (
-            <div key={index} className="caption-field">
+            <div key={index} className="flex items-center gap-2">
               <input
                 type="text"
                 placeholder={`Caption ${index + 1}`}
                 value={caption}
                 onChange={(e) => handleCaptionChange(index, e.target.value)}
+                className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
               {form.captions.length > 1 && (
                 <button
                   type="button"
-                  className="remove-caption"
+                  className="text-red-500 hover:text-red-700"
                   onClick={() => removeCaptionField(index)}
                 >
                   ❌
@@ -92,14 +218,20 @@ export default function AdminPanel() {
               )}
             </div>
           ))}
-          {form.captions.length < 5 && (
-            <button type="button" className="add-caption-btn" onClick={addCaptionField}>
-              + Add Caption
-            </button>
-          )}
         </div>
+        {form.captions.length < 5 && (
+          <button
+            type="button"
+            onClick={addCaptionField}
+            className="mt-3 bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded"
+          >
+            + Add Caption
+          </button>
+        )}
 
-        <label>Number of photos to retain (15–99)</label>
+        <label className="block font-medium text-sm text-gray-700 mt-6">
+          Number of photos to retain (15–99)
+        </label>
         <input
           type="number"
           name="photoLimit"
@@ -107,27 +239,84 @@ export default function AdminPanel() {
           min="15"
           max="99"
           onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
-        <label>Posting Interval (minutes)</label>
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Posting Interval (minutes)
+        </label>
         <input
           type="number"
           name="interval"
           value={form.interval}
           min="1"
           onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
-        <label>Page Title</label>
-        <input type="text" name="pageTitle" value={form.pageTitle} onChange={handleChange} />
+        <label className="block font-medium text-sm text-gray-700 mt-4">
+          Page Title
+        </label>
+        <input
+          type="text"
+          name="pageTitle"
+          value={form.pageTitle}
+          onChange={handleChange}
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
 
-        <label>Upload Logo</label>
-        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'logo')} />
+        <div className="mt-4">
+          <label
+            htmlFor="logo-upload"
+            className="cursor-pointer inline-block bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded shadow"
+          >
+            Upload Logo
+          </label>
+          <input
+            id="logo-upload"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleFileUpload(e, "logo")}
+          />
+          {form.logo && (
+            <img
+              src={form.logo}
+              alt="Logo preview"
+              className="h-16 mt-2 object-contain"
+            />
+          )}
+        </div>
 
-        <label>Upload Background Image</label>
-        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'background')} />
+        <div className="mt-4">
+          <label
+            htmlFor="background-upload"
+            className="cursor-pointer inline-block bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium py-2 px-4 rounded shadow"
+          >
+            Upload Background Image
+          </label>
+          <input
+            id="background-upload"
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleFileUpload(e, "background")}
+            className="hidden"
+          />
+          {form.background && (
+            <img
+              src={form.background}
+              alt="Background preview"
+              className="h-16 mt-2 object-cover"
+            />
+          )}
+        </div>
 
-        <button type="submit" className="save-btn">💾 Save Settings</button>
+        <button
+          type="submit"
+          className="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-semibold rounded-md transition duration-200"
+        >
+          💾 Save Settings
+        </button>
       </form>
     </div>
   );

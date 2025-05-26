@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import "../styles/CapturePage.css";
 import { Camera, Repeat2 } from "lucide-react";
 
 export default function CapturePage() {
@@ -9,6 +8,9 @@ export default function CapturePage() {
   const [stream, setStream] = useState(null);
   const [cameraActive, setCameraActive] = useState(true);
   const [isMirrored, setIsMirrored] = useState(true);
+  const [logo, setLogo] = useState("");
+  const [pageTitle, setPageTitle] = useState("");
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -27,8 +29,35 @@ export default function CapturePage() {
       }
     };
 
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/admin/settings`
+        );
+        const data = await res.json();
+
+        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        const logoUrl = data.logo_filename
+          ? `${baseUrl}${data.logo_filename}`
+          : "/default-logo.png";
+
+        const img = new Image();
+        img.src = logoUrl;
+        img.onload = () => setLogoLoaded(true);
+        img.onerror = () => setLogoLoaded(false);
+
+        setLogo(logoUrl);
+        setPageTitle(data.page_title || "");
+      } catch (err) {
+        console.error("Failed to fetch capture page settings", err);
+        setLogo("/default-logo.png");
+        setLogoLoaded(true);
+      }
+    };
+
     if (!preview) {
       startCamera();
+      fetchSettings();
     }
 
     return () => {
@@ -38,53 +67,35 @@ export default function CapturePage() {
     };
   }, [preview]);
 
-  // const takePhoto = () => {
-  //   if (videoRef.current && canvasRef.current) {
-  //     const video = videoRef.current;
-  //     const canvas = canvasRef.current;
-
-  //     canvas.width = video.videoWidth;
-  //     canvas.height = video.videoHeight;
-
-  //     const context = canvas.getContext("2d");
-
-  //     context.save(); // ✅ Save the current context state
-
-  //     if (isMirrored) {
-  //       context.translate(canvas.width, 0);
-  //       context.scale(-1, 1);
-  //     }
-
-  //     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  //     context.restore(); // ✅ Restore to avoid affecting future drawings
-
-  //     const dataUrl = canvas.toDataURL("image/png");
-  //     setPreview(dataUrl);
-
-  //     if (stream) {
-  //       stream.getTracks().forEach((track) => track.stop());
-  //     }
-  //   }
-  // };
-
   const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
+    if (!videoRef.current || !canvasRef.current) return;
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
 
-      const context = canvas.getContext("2d");
-      context.save();
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-      if (isMirrored) {
-        context.translate(canvas.width, 0);
-        context.scale(-1, 1);
-      }
+    context.save();
+    if (isMirrored) {
+      context.translate(canvas.width, 0);
+      context.scale(-1, 1);
+    }
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.restore();
 
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      context.restore();
+    const logoImg = new Image();
+    logoImg.crossOrigin = "anonymous";
+    logoImg.src = logo;
+
+    logoImg.onload = () => {
+      const logoSize = 64;
+      const padding = 12;
+      const x = canvas.width - logoSize - padding;
+      const y = canvas.height - logoSize - padding;
+
+      context.drawImage(logoImg, x, y, logoSize, logoSize);
 
       const dataUrl = canvas.toDataURL("image/png");
       setPreview(dataUrl);
@@ -92,11 +103,51 @@ export default function CapturePage() {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
-    }
+    };
+
+    logoImg.onerror = () => {
+      console.warn("Failed to load logo for watermark.");
+      const dataUrl = canvas.toDataURL("image/png");
+      setPreview(dataUrl);
+    };
   };
 
-  const confirmPhoto = () => {
-    console.log("Photo confirmed!", preview);
+  const dataURLtoBlob = (dataURL) => {
+    const parts = dataURL.split(",");
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  const confirmPhoto = async () => {
+    if (!preview) return;
+
+    const blob = dataURLtoBlob(preview);
+    const formData = new FormData();
+    formData.append("file", blob, "selfie.png");
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/capture/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+      console.log("Upload response:", result);
+      alert("Photo uploaded successfully!");
+      setPreview(null);
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to upload photo.");
+    }
   };
 
   const retakePhoto = () => {
@@ -108,91 +159,93 @@ export default function CapturePage() {
   };
 
   return (
-    <div className="capture-container">
-      <div className="capture-content">
-        <h1 className="capture-title">TAKE A SELFIE</h1>
-        <p className="capture-subtitle">Photo Booth App</p>
+    <div className="w-full h-[calc(100vh-20px)] flex justify-center items-center bg-blue-50 px-4 overflow-hidden">
+      <div className="w-full max-w-[1150px] h-full flex flex-col items-center p-4 overflow-hidden">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-0 text-center">
+          TAKE A SELFIE
+        </h1>
 
-        <div className="logo-container">
-          <div className="camera-logo">
-            <div className="camera-icon">
-              <div className="camera-person"></div>
-            </div>
-          </div>
-        </div>
+        {pageTitle && (
+          <p className="text-sm text-gray-500 mt-1 text-center">{pageTitle}</p>
+        )}
 
-        {/* <div className="preview-container">
+        {logo && (
+          <img
+            src={logo}
+            alt="Business Logo"
+            className="h-16 mt-3 object-contain"
+          />
+        )}
+
+        {/* Preview Container */}
+        <div className="relative w-full max-h-[700px] flex-1 min-h-0 overflow-hidden rounded-xl bg-gray-800 shadow-lg my-3">
           {preview ? (
             <img
               src={preview}
               alt="Captured selfie"
-              className={`preview-image ${isMirrored ? "mirrored" : ""}`}
+              className="w-full h-full object-contain"
             />
           ) : (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`camera-preview ${isMirrored ? "mirrored" : ""}`}
-            />
+            <>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover ${
+                  isMirrored ? "scale-x-[-1]" : ""
+                }`}
+              />
+              {logo && logoLoaded && (
+                <img
+                  src={logo}
+                  alt="Watermark"
+                  className="absolute bottom-3 right-3 w-16 h-16 opacity-80 object-contain"
+                />
+              )}
+            </>
           )}
 
+          {/* Mirror Toggle */}
           {!preview && (
-            <button className="mirror-icon-btn" onClick={toggleMirror}>
+            <button
+              onClick={toggleMirror}
+              className="absolute top-3 right-3 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition"
+            >
               <Repeat2 size={20} />
             </button>
           )}
-        </div> */}
 
-        <div className="preview-container">
-          {preview ? (
-            <img
-              src={preview}
-              alt="Captured selfie"
-              className="preview-image" // ❌ removed "mirrored" class here
-            />
-          ) : (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`camera-preview ${isMirrored ? "mirrored" : ""}`}
-            />
-          )}
-
-          {!preview && (
-            <button className="mirror-icon-btn" onClick={toggleMirror}>
-              <Repeat2 size={20} />
-            </button>
-          )}
-        </div>
-
-        <canvas ref={canvasRef} style={{ display: "none" }} />
-
-        <div className="buttons-container">
+          {/* Action Buttons - Centered Inside Preview */}
           {!preview ? (
-            <div className="camera-controls-inside">
+            <div className="absolute inset-0 flex justify-center items-center z-10 pointer-events-none">
               <button
-                className="capture-circle-btn"
                 onClick={takePhoto}
                 disabled={!cameraActive}
+                className="w-20 h-20 rounded-full bg-white text-gray-900 text-2xl font-bold shadow-lg flex items-center justify-center hover:bg-gray-100 transition pointer-events-auto"
               >
-                <Camera size={24} />
+                <Camera size={36} />
               </button>
             </div>
           ) : (
-            <div className="confirm-retake-controls">
-              <button className="confirm-btn" onClick={confirmPhoto}>
-                ✅ Confirm
+            <div className="absolute inset-0 flex flex-wrap justify-center items-center gap-4 z-10 pointer-events-none">
+              <button
+                onClick={confirmPhoto}
+                className="px-6 md:px-8 py-4 md:py-6 rounded-xl bg-green-400 hover:bg-green-500 text-red-500 font-bold text-lg md:text-xl shadow-lg border-4 border-cyan-200 pointer-events-auto"
+              >
+                👍 Looks Great!
               </button>
-              <button className="retake-btn" onClick={retakePhoto}>
-                🔁 Retake
+              <button
+                onClick={retakePhoto}
+                className="px-6 md:px-8 py-4 md:py-6 rounded-xl bg-yellow-300 hover:bg-yellow-400 text-red-600 font-bold text-lg md:text-xl shadow-lg border-4 border-red-500 pointer-events-auto"
+              >
+                👎 Retake
               </button>
             </div>
           )}
         </div>
+
+        <canvas ref={canvasRef} className="hidden" />
       </div>
     </div>
   );
