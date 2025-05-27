@@ -7,9 +7,9 @@ export default function SlideshowPage() {
   const [title, setTitle] = useState("");
   const [background, setBackground] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [transitionClass, setTransitionClass] = useState("");
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [transitionClass, setTransitionClass] = useState("fade");
   const [windowSize, setWindowSize] = useState({ width: 1920, height: 1080 });
+  const [thumbnailStartIndex, setThumbnailStartIndex] = useState(0);
   const prevIndexRef = useRef(0);
   const slideshowRef = useRef(null);
 
@@ -21,15 +21,17 @@ export default function SlideshowPage() {
         const resolvedPhotos = (data.photos || []).map(
           (path) => `${baseUrl}${path}`
         );
-        const resolvedLogo = data.logo ? `${baseUrl}${data.logo}` : "";
-        const resolvedBackground = data.background
-          ? `${baseUrl}${data.background}`
-          : "";
-
         setPhotos(resolvedPhotos);
-        setLogo(resolvedLogo);
+        setLogo(data.logo ? `${baseUrl}${data.logo}` : "");
         setTitle(data.title || "");
-        setBackground(resolvedBackground);
+        setBackground(data.background ? `${baseUrl}${data.background}` : "");
+
+        // Debug: Let's see what we're getting
+        console.log("API Response:", data);
+        console.log(
+          "Logo URL:",
+          data.logo ? `${baseUrl}${data.logo}` : "No logo"
+        );
       })
       .catch((err) => {
         console.error("Failed to load slideshow data", err);
@@ -37,7 +39,6 @@ export default function SlideshowPage() {
       });
   }, []);
 
-  // Track window size for responsive layout
   useEffect(() => {
     const updateSize = () => {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
@@ -51,40 +52,31 @@ export default function SlideshowPage() {
     };
   }, []);
 
-  // Fullscreen detection
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const isFS = !!document.fullscreenElement;
-      setIsFullscreen(isFS);
+      setIsFullscreen(!!document.fullscreenElement);
     };
-
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
 
-  // Slideshow autoplay in fullscreen
+  // Auto-start slideshow by default, not just in fullscreen
   useEffect(() => {
-    if (!isFullscreen || photos.length === 0) return;
+    if (photos.length === 0) return;
 
     const interval = setInterval(() => {
       setTransitionClass(getRandomTransition());
       prevIndexRef.current = currentIndex;
       setCurrentIndex((prev) => (prev + 1) % photos.length);
-    }, 1500);
+    }, 2500); // Faster transition - 1.5 seconds
 
     return () => clearInterval(interval);
-  }, [isFullscreen, photos.length, currentIndex]);
+  }, [photos.length, currentIndex]);
 
   const getRandomTransition = () => {
-    const transitions = [
-      "opacity-0 scale-95",
-      "opacity-0 translate-x-20",
-      "opacity-0 -translate-x-20",
-      "opacity-0 translate-y-20",
-      "opacity-0 -translate-y-20",
-    ];
+    const transitions = ["fade", "slide", "zoom", "rotate"];
     return transitions[Math.floor(Math.random() * transitions.length)];
   };
 
@@ -101,135 +93,280 @@ export default function SlideshowPage() {
   };
 
   const handleThumbnailClick = (index) => {
-    setTransitionClass(""); // skip animation on click
+    setTransitionClass(""); // no animation on manual switch
     setCurrentIndex(index);
   };
 
-  // Get up to 8 images surrounding the current one (excluding the current)
-  const getSurroundingImages = () => {
+  // Thumbnail navigation functions
+  const getVisibleThumbnailCount = () => {
+    // Calculate how many thumbnails can fit based on 50% screen width
+    const thumbnailWidth = 70; // 60px + gap
+    const availableWidth = windowSize.width * 0.5 - 120; // 50% width minus arrow buttons
+    return Math.floor(availableWidth / thumbnailWidth);
+  };
+
+  const handleThumbnailNavLeft = () => {
+    const moveBy = 1;
+    setThumbnailStartIndex((prev) => Math.max(0, prev - moveBy));
+  };
+
+  const handleThumbnailNavRight = () => {
+    const moveBy = 1;
+    const maxStartIndex = Math.max(
+      0,
+      photos.length - getVisibleThumbnailCount()
+    );
+    setThumbnailStartIndex((prev) => Math.min(maxStartIndex, prev + moveBy));
+  };
+
+  const getVisibleThumbnails = () => {
+    const visibleCount = getVisibleThumbnailCount();
+    return photos.slice(
+      thumbnailStartIndex,
+      thumbnailStartIndex + visibleCount
+    );
+  };
+
+  const getFloatingPositions = () => {
+    const isPortrait = windowSize.height > windowSize.width;
+
+    // Different positioning for portrait vs landscape
+    const positions = isPortrait
+      ? [
+          // Portrait mode - ONLY top and bottom, NO left/right of main image
+          { top: "2%", left: "10%" },
+          { top: "2%", right: "10%" },
+          { top: "2%", left: "50%", transform: "translateX(-50%)" },
+          { top: "8%", left: "5%" },
+          { top: "8%", right: "5%" },
+          { top: "8%", left: "25%" },
+          { top: "8%", right: "25%" },
+          { top: "15%", left: "15%" },
+          { top: "15%", right: "15%" },
+          { top: "15%", left: "50%", transform: "translateX(-50%)" },
+          // Bottom positions - well spaced from main image
+          { bottom: "15%", left: "15%" },
+          { bottom: "15%", right: "15%" },
+          { bottom: "15%", left: "50%", transform: "translateX(-50%)" },
+          { bottom: "8%", left: "5%" },
+          { bottom: "8%", right: "5%" },
+          { bottom: "8%", left: "25%" },
+          { bottom: "8%", right: "25%" },
+          { bottom: "2%", left: "10%" },
+          { bottom: "2%", right: "10%" },
+          { bottom: "2%", left: "50%", transform: "translateX(-50%)" },
+        ]
+      : [
+          // Landscape mode positions - more horizontal spread
+          { top: "8%", left: "3%" },
+          { top: "12%", right: "3%" },
+          { top: "25%", left: "1%" },
+          { top: "28%", right: "1%" },
+          { bottom: "25%", left: "2%" },
+          { bottom: "22%", right: "2%" },
+          { bottom: "8%", left: "4%" },
+          { bottom: "12%", right: "4%" },
+          { top: "45%", left: "5%" },
+          { top: "48%", right: "5%" },
+          { bottom: "35%", left: "6%" },
+          { bottom: "38%", right: "6%" },
+        ];
+
     const result = [];
-    const totalImages = photos.length;
-    for (let i = 1; i <= 8; i++) {
-      const index = (currentIndex + i) % totalImages;
-      result.push({ photo: photos[index], index });
+    const maxFloating = Math.min(positions.length, photos.length - 1);
+
+    for (let i = 1; i <= maxFloating; i++) {
+      const index = (currentIndex + i) % photos.length;
+      result.push({
+        photo: photos[index],
+        index,
+        pos: positions[(i - 1) % positions.length],
+      });
     }
     return result;
   };
 
-  // Responsive radius and size for side images
-  const getCircleLayout = () => {
-    const minDim = Math.min(windowSize.width, windowSize.height);
-    const radius = Math.max(minDim * 0.32, 180); // increased radius
-    const sideSize = Math.max(Math.min(minDim * 0.13, 160), 90);
-    const mainSize = Math.max(Math.min(minDim * 0.38, 480), 220); // larger main image
-    return { radius, sideSize, mainSize };
-  };
-
-  const { radius, sideSize, mainSize } = getCircleLayout();
+  const isPortrait = windowSize.height > windowSize.width;
 
   return (
     <div
       ref={slideshowRef}
-      className="relative w-full min-h-screen flex flex-col items-center justify-center text-white overflow-hidden"
+      className="relative w-full min-h-screen flex flex-col text-white overflow-hidden"
       style={{
         backgroundImage: background ? `url(${background})` : "none",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Header */}
-      <div className="absolute top-5 left-1/2 transform -translate-x-1/2 text-center z-10 flex flex-col items-center">
-        <h1 className="text-xl sm:text-2xl font-bold drop-shadow-lg">
-          TMTSelfie
-        </h1>
-        {logo && (
-          <img src={logo} alt="Logo" className="h-10 mt-2 drop-shadow-lg" />
-        )}
-        {isFullscreen && title && (
-          <p className="text-md sm:text-lg mt-1 drop-shadow-md">{title}</p>
-        )}
+      {/* Header - Centered title */}
+      <div
+        className="absolute top-0 left-0 right-0 flex items-center justify-center px-6 py-4 z-30"
+        style={{ height: isPortrait ? "80px" : "70px" }}
+      >
+        <div className="text-center">
+          <h1 className="text-2xl font-bold drop-shadow-lg">TMTSelfie</h1>
+          {title && <p className="text-md mt-1 drop-shadow-md">{title}</p>}
+        </div>
       </div>
 
-      {/* Slideshow Display Area */}
-      <div className="relative w-full h-[80vh] px-4 flex items-center justify-center">
+      {/* Fullscreen Button - Top Right */}
+      <button
+        onClick={handleFullscreen}
+        className="absolute top-6 right-6 bg-white bg-opacity-90 text-black px-4 py-2 text-sm rounded-lg hover:bg-opacity-100 transition-all duration-300 z-30 shadow-lg"
+      >
+        ⛶ Fullscreen
+      </button>
+
+      {/* Slideshow - Account for header height */}
+      <div
+        className="relative flex-grow flex items-center justify-center"
+        style={{
+          marginTop: isPortrait ? "80px" : "70px",
+          paddingBottom: isFullscreen ? "10px" : isPortrait ? "100px" : "120px",
+        }}
+      >
         {photos.length > 0 ? (
           <div className="relative w-full h-full flex items-center justify-center">
-            {/* Surrounding Images (Max 8) */}
-            {isFullscreen &&
-              getSurroundingImages().map(({ photo, index }, idx) => {
-                const total = 8;
-                const angle = (2 * Math.PI * idx) / total;
-                const x = Math.cos(angle) * radius;
-                const y = Math.sin(angle) * radius;
-                return (
-                  <img
-                    key={index}
-                    src={photo}
-                    alt={`Surrounding ${index}`}
-                    className="absolute object-cover rounded-lg shadow-md opacity-80 z-10 transition-all duration-500 ease-in-out hover:scale-110 hover:opacity-100 hover:z-20"
-                    style={{
-                      width: sideSize,
-                      height: sideSize,
-                      left: `calc(50% + ${x}px - ${sideSize / 2}px)`,
-                      top: `calc(50% + ${y}px - ${sideSize / 2}px)`,
-                      transform: `rotate(${Math.random() * 20 - 10}deg) scale(${
-                        0.95 + Math.random() * 0.15
-                      })`,
-                    }}
-                  />
-                );
-              })}
+            {/* Floating Surrounding Images - Show always, not just in fullscreen */}
+            {getFloatingPositions().map(({ photo, index, pos }) => (
+              <img
+                key={`floating-${index}`}
+                src={photo}
+                alt={`Floating ${index}`}
+                className="absolute object-cover rounded-lg shadow-xl opacity-40 hover:opacity-70 hover:scale-110 transition-all duration-700 z-10"
+                style={{
+                  width: isPortrait ? "120px" : "150px",
+                  height: isPortrait ? "120px" : "150px",
+                  ...pos,
+                  transform:
+                    pos.transform ||
+                    `rotate(${Math.random() * 30 - 15}deg) scale(${
+                      0.8 + Math.random() * 0.4
+                    })`,
+                }}
+              />
+            ))}
 
-            {/* Center Main Image - always rendered last, always on top */}
+            {/* Main Image - Optimized for both orientations */}
             <img
-              key={currentIndex}
+              key={`main-${currentIndex}`}
               src={photos[currentIndex]}
               alt={`Slide ${currentIndex}`}
-              className={`z-30 rounded-xl object-contain shadow-2xl transition-all duration-500 ease-in-out ${
-                isFullscreen ? transitionClass : ""
-              }`}
+              className={`rounded-xl object-contain shadow-2xl z-30 transition-all duration-1000 ease-in-out ${transitionClass}`}
               style={{
-                width: isFullscreen ? mainSize : undefined,
-                height: isFullscreen ? mainSize : undefined,
-                maxWidth: isFullscreen ? undefined : "70vw",
-                maxHeight: isFullscreen ? undefined : "70vh",
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                transform: "translate(-50%, -50%)",
+                width: "auto",
+                height: isPortrait
+                  ? `${windowSize.height * 0.8}px` // Increased from 0.6 to 0.8 for portrait
+                  : `${windowSize.height * 0.75}px`,
+                maxWidth: isPortrait ? "95%" : "60%", // Increased from 90% to 95%
+                maxHeight: isPortrait ? "80%" : "75%", // Increased from 60% to 80%
               }}
             />
           </div>
         ) : (
-          <p className="text-white text-lg">No images yet</p>
+          <p className="text-white text-lg text-center w-full">
+            No images available
+          </p>
         )}
       </div>
 
-      {/* Persistent bottom thumbnail list */}
-      <div className="flex justify-center gap-2 mt-4 px-4 overflow-x-auto w-full max-w-6xl pb-2 mx-auto z-10">
-        {photos.map((photo, index) => (
-          <img
-            key={index}
-            src={photo}
-            alt={`Thumb ${index}`}
-            className={`h-[60px] rounded-sm transition-opacity duration-300 cursor-pointer ${
-              index === currentIndex
-                ? "opacity-100 border-2 border-white"
-                : "opacity-60"
+      {/* Thumbnails with Arrow Navigation - Hidden in fullscreen to maximize space */}
+      {!isFullscreen && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 flex items-center justify-center gap-2 px-4 z-30">
+          {/* Left Arrow */}
+          <button
+            onClick={handleThumbnailNavLeft}
+            disabled={thumbnailStartIndex === 0}
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+              thumbnailStartIndex === 0
+                ? "bg-white bg-opacity-30 opacity-40"
+                : "bg-white bg-opacity-90 hover:bg-opacity-100"
             }`}
-            onClick={() => handleThumbnailClick(index)}
-          />
-        ))}
+            style={{
+              cursor: thumbnailStartIndex === 0 ? "default" : "pointer",
+            }}
+          >
+            <span
+              className={`text-lg ${
+                thumbnailStartIndex === 0 ? "text-gray-300" : "text-black"
+              }`}
+            >
+              ‹
+            </span>
+          </button>
+
+          {/* Thumbnails Container */}
+          <div className="flex gap-2 overflow-hidden">
+            {getVisibleThumbnails().map((photo, visibleIndex) => {
+              const actualIndex = thumbnailStartIndex + visibleIndex;
+              return (
+                <img
+                  key={`thumb-${actualIndex}`}
+                  src={photo}
+                  alt={`Thumb ${actualIndex}`}
+                  className={`h-[60px] rounded-sm transition-all duration-300 cursor-pointer flex-shrink-0 ${
+                    actualIndex === currentIndex
+                      ? "opacity-100 border-2 border-white scale-110"
+                      : "opacity-60 hover:opacity-80"
+                  }`}
+                  onClick={() => handleThumbnailClick(actualIndex)}
+                />
+              );
+            })}
+          </div>
+
+          {/* Right Arrow */}
+          <button
+            onClick={handleThumbnailNavRight}
+            disabled={
+              thumbnailStartIndex >=
+              Math.max(0, photos.length - getVisibleThumbnailCount())
+            }
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+              thumbnailStartIndex >=
+              Math.max(0, photos.length - getVisibleThumbnailCount())
+                ? "bg-white bg-opacity-30 opacity-40"
+                : "bg-white bg-opacity-90 hover:bg-opacity-100"
+            }`}
+            style={{
+              cursor:
+                thumbnailStartIndex >=
+                Math.max(0, photos.length - getVisibleThumbnailCount())
+                  ? "default"
+                  : "pointer",
+            }}
+          >
+            <span
+              className={`text-lg ${
+                thumbnailStartIndex >=
+                Math.max(0, photos.length - getVisibleThumbnailCount())
+                  ? "text-gray-300"
+                  : "text-black"
+              }`}
+            >
+              ›
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* QR Code - Bottom Left */}
+      <div className="absolute bottom-7 left-7 z-30">
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.facebook.com/profile.php?id=61576626537248"
+          alt="Facebook QR Code"
+          className="w-20 h-20 bg-white p-1 rounded-lg shadow-lg"
+        />
       </div>
 
-      {/* Fullscreen Button */}
-      <button
-        onClick={handleFullscreen}
-        className="absolute bottom-6 right-6 bg-white text-black px-4 py-2 text-sm rounded hover:bg-gray-200 transition z-10"
-      >
-        ⛶ Fullscreen
-      </button>
+      {/* Bottom Right Logo instead of Fullscreen Button */}
+      {logo && (
+        <img
+          src={logo}
+          alt="Logo"
+          className="absolute bottom-7 right-7 h-15 w-auto object-contain z-30"
+        />
+      )}
     </div>
   );
 }
