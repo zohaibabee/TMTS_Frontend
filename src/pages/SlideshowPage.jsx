@@ -12,6 +12,7 @@ export default function SlideshowPage() {
   const [thumbnailStartIndex, setThumbnailStartIndex] = useState(0);
   const prevIndexRef = useRef(0);
   const slideshowRef = useRef(null);
+  const [facebookUrl, setFacebookUrl] = useState(null);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_BASE_URL}/api/slideshow`)
@@ -74,6 +75,28 @@ export default function SlideshowPage() {
 
     return () => clearInterval(interval);
   }, [photos.length, currentIndex]);
+
+  useEffect(() => {
+    const fetchFacebookUrl = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/admin/facebook-page-url`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setFacebookUrl(data.page_url);
+          console.log("Facebook URL loaded:", data.page_url);
+        } else {
+          console.warn("Failed to fetch Facebook URL from API");
+        }
+      } catch (error) {
+        console.error("Error fetching Facebook URL:", error);
+      }
+    };
+
+    fetchFacebookUrl();
+  }, []);
 
   const getRandomTransition = () => {
     const transitions = ["fade", "slide", "zoom", "rotate"];
@@ -351,13 +374,17 @@ export default function SlideshowPage() {
       )}
 
       {/* QR Code - Bottom Left */}
-      <div className="absolute bottom-5 left-9 z-30">
-        <img
-          src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=https://www.facebook.com/profile.php?id=61576626537248"
-          alt="Facebook QR Code"
-          className="w-30 h-30 bg-white p-1 rounded-lg shadow-lg"
-        />
-      </div>
+      {facebookUrl && (
+        <div className="absolute bottom-5 left-9 z-30">
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(
+              facebookUrl
+            )}`}
+            alt="Facebook QR Code"
+            className="w-30 h-30 bg-white p-1 rounded-lg shadow-lg"
+          />
+        </div>
+      )}
 
       {/* Bottom Right Logo instead of Fullscreen Button */}
       {logo && (

@@ -1,6 +1,7 @@
 {
   "name": "tmts",
   "private": true,
+  "homepage": "/tmt",
   "version": "0.0.0",
   "type": "module",
   "scripts": {

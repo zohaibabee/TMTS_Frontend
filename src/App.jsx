@@ -26,7 +26,9 @@ function RequireAuth({ children }) {
 
 function App() {
   return (
-    <Router>
+    <Router basename="/tmt">
+      {" "}
+      {/* 👈 IMPORTANT FIX HERE */}
       <Routes>
         <Route path="/" element={<CapturePage />} />
         <Route path="/slideshow" element={<SlideshowPage />} />
