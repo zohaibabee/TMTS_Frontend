@@ -351,11 +351,11 @@ export default function SlideshowPage() {
       )}
 
       {/* QR Code - Bottom Left */}
-      <div className="absolute bottom-7 left-7 z-30">
+      <div className="absolute bottom-5 left-9 z-30">
         <img
-          src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=https://www.facebook.com/profile.php?id=61576626537248"
+          src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=https://www.facebook.com/profile.php?id=61576626537248"
           alt="Facebook QR Code"
-          className="w-20 h-20 bg-white p-1 rounded-lg shadow-lg"
+          className="w-30 h-30 bg-white p-1 rounded-lg shadow-lg"
         />
       </div>
 

@@ -14,9 +14,17 @@ export default function AdminPanel() {
     background: "",
   });
 
+  const [fbConnecting, setFbConnecting] = useState(false);
+  const [fbAppId, setFbAppId] = useState("");
+  const [fbAppSecret, setFbAppSecret] = useState("");
+  const [fbModalOpen, setFbModalOpen] = useState(false);
+  const [fbSuccessModalOpen, setFbSuccessModalOpen] = useState(false);
+  const [fbAccessToken, setFbAccessToken] = useState("");
+  const [fbPageId, setFbPageId] = useState("");
+  const [fbConnectedPageName, setFbConnectedPageName] = useState("");
+
   const navigate = useNavigate();
 
-  // ✅ Check auth on load
   useEffect(() => {
     const token = localStorage.getItem("token");
     const expiry = localStorage.getItem("token_expiry");
@@ -46,11 +54,9 @@ export default function AdminPanel() {
           photoLimit: data.max_photos,
           interval: data.post_interval_minutes,
           pageTitle: data.page_title,
-          // logo: data.logo_filename || "",
           logo: data.logo_filename
             ? `${import.meta.env.VITE_API_BASE_URL}${data.logo_filename}`
             : "",
-          // background: data.background_filename || "",
           background: data.background_filename
             ? `${import.meta.env.VITE_API_BASE_URL}${data.background_filename}`
             : "",
@@ -151,15 +157,63 @@ export default function AdminPanel() {
     }
   };
 
+  const handleFbConnect = async () => {
+    setFbConnecting(true); // start loading
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/admin/page_connection`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            app_id: fbAppId,
+            app_secret: fbAppSecret,
+            user_token: fbAccessToken,
+            page_id: fbPageId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Unknown error");
+      }
+
+      const data = await response.json();
+      setFbConnectedPageName(data.page_name);
+      setFbSuccessModalOpen(true);
+      setFbModalOpen(false);
+      setFbAccessToken("");
+      setFbPageId("");
+    } catch (err) {
+      console.error("Facebook connection failed", err);
+      alert(`❌ Failed to connect: ${err.message}`);
+    } finally {
+      setFbConnecting(false); // stop loading
+    }
+  };
+
   return (
     <div className="flex justify-center px-4 py-12 bg-gray-100 min-h-screen">
       <form
         className="bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-xl"
         onSubmit={handleSave}
       >
-        <h2 className="text-2xl font-semibold text-center text-gray-800 mb-6">
+        <h2 className="text-2xl font-semibold text-center text-gray-800 mb-2">
           Admin Panel
         </h2>
+
+        {fbConnectedPageName && (
+          <p className="text-center text-green-600 font-medium mb-4">
+            Connected Page:{" "}
+            <span className="font-semibold">{fbConnectedPageName}</span>
+          </p>
+        )}
+
+        {/* All original inputs below */}
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
           Business Name
@@ -169,7 +223,7 @@ export default function AdminPanel() {
           name="businessName"
           value={form.businessName}
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
@@ -180,7 +234,7 @@ export default function AdminPanel() {
           name="businessAddress"
           value={form.businessAddress}
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
@@ -191,7 +245,7 @@ export default function AdminPanel() {
           name="hashtags"
           value={form.hashtags}
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
@@ -205,7 +259,7 @@ export default function AdminPanel() {
                 placeholder={`Caption ${index + 1}`}
                 value={caption}
                 onChange={(e) => handleCaptionChange(index, e.target.value)}
-                className="flex-1 border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="flex-1 border rounded-md px-3 py-2 text-sm"
               />
               {form.captions.length > 1 && (
                 <button
@@ -239,7 +293,7 @@ export default function AdminPanel() {
           min="15"
           max="99"
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
@@ -251,7 +305,7 @@ export default function AdminPanel() {
           value={form.interval}
           min="1"
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <label className="block font-medium text-sm text-gray-700 mt-4">
@@ -262,13 +316,13 @@ export default function AdminPanel() {
           name="pageTitle"
           value={form.pageTitle}
           onChange={handleChange}
-          className="mt-1 w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
         />
 
         <div className="mt-4">
           <label
             htmlFor="logo-upload"
-            className="cursor-pointer inline-block bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded shadow"
+            className="cursor-pointer inline-block bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded"
           >
             Upload Logo
           </label>
@@ -282,7 +336,7 @@ export default function AdminPanel() {
           {form.logo && (
             <img
               src={form.logo}
-              alt="Logo preview"
+              alt="Logo"
               className="h-16 mt-2 object-contain"
             />
           )}
@@ -291,7 +345,7 @@ export default function AdminPanel() {
         <div className="mt-4">
           <label
             htmlFor="background-upload"
-            className="cursor-pointer inline-block bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium py-2 px-4 rounded shadow"
+            className="cursor-pointer inline-block bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium py-2 px-4 rounded"
           >
             Upload Background Image
           </label>
@@ -305,19 +359,109 @@ export default function AdminPanel() {
           {form.background && (
             <img
               src={form.background}
-              alt="Background preview"
+              alt="Background"
               className="h-16 mt-2 object-cover"
             />
           )}
         </div>
 
         <button
+          type="button"
+          className="mt-6 w-full bg-blue-500 hover:bg-blue-600 text-white py-2 font-medium rounded"
+          onClick={() => setFbModalOpen(true)}
+        >
+          📘 Attach Facebook Page
+        </button>
+
+        <button
           type="submit"
-          className="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-semibold rounded-md transition duration-200"
+          className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 font-semibold rounded-md"
         >
           💾 Save Settings
         </button>
       </form>
+
+      {/* Facebook Connect Modal */}
+      {/* Facebook Connect Modal */}
+      {fbModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-md shadow-lg w-96">
+            <h3 className="text-xl font-semibold mb-4">
+              Connect Facebook Page
+            </h3>
+
+            <label className="block mb-2 text-sm font-medium">App ID</label>
+            <input
+              type="text"
+              value={fbAppId}
+              onChange={(e) => setFbAppId(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-4"
+            />
+
+            <label className="block mb-2 text-sm font-medium">App Secret</label>
+            <input
+              type="text"
+              value={fbAppSecret}
+              onChange={(e) => setFbAppSecret(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-4"
+            />
+
+            <label className="block mb-2 text-sm font-medium">
+              User Access Token
+            </label>
+            <input
+              type="text"
+              value={fbAccessToken}
+              onChange={(e) => setFbAccessToken(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-4"
+            />
+
+            <label className="block mb-2 text-sm font-medium">Page ID</label>
+            <input
+              type="text"
+              value={fbPageId}
+              onChange={(e) => setFbPageId(e.target.value)}
+              className="w-full border px-3 py-2 rounded mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setFbModalOpen(false)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFbConnect}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center justify-center"
+                disabled={fbConnecting}
+              >
+                {fbConnecting ? "⏳ Connecting..." : "Connect"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {fbSuccessModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-md shadow-lg w-96 text-center">
+            <h3 className="text-xl font-semibold mb-4 text-green-700">
+              🎉 Connected!
+            </h3>
+            <p className="mb-6">
+              Connected to <strong>{fbConnectedPageName}</strong> successfully!
+            </p>
+            <button
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded"
+              onClick={() => setFbSuccessModalOpen(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
