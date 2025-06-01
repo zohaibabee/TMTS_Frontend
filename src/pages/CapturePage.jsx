@@ -168,14 +168,6 @@ export default function CapturePage() {
           <p className="text-sm text-gray-500 mt-1 text-center">{pageTitle}</p>
         )}
 
-        {logo && (
-          <img
-            src={logo}
-            alt="Business Logo"
-            className="h-16 mt-3 object-contain"
-          />
-        )}
-
         {/* Preview Container */}
         <div className="relative w-full max-h-[700px] flex-1 min-h-0 overflow-hidden rounded-xl bg-gray-800 shadow-lg my-3">
           {preview ? (
