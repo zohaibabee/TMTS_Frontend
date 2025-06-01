@@ -142,7 +142,6 @@ export default function CapturePage() {
 
       const result = await response.json();
       console.log("Upload response:", result);
-      alert("Photo uploaded successfully!");
       setPreview(null);
     } catch (err) {
       console.error("Upload failed", err);
