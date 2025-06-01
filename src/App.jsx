@@ -8,6 +8,7 @@ import CapturePage from "./pages/CapturePage";
 import AdminPanel from "./pages/AdminPanel";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import SuperUserSetup from "./pages/SuperUserSetup"; // Add this import
 import SlideshowPage from "./pages/SlideshowPage";
 
 // Auth check wrapper
@@ -27,13 +28,13 @@ function RequireAuth({ children }) {
 function App() {
   return (
     <Router basename="/tmt">
-      {" "}
-      {/* 👈 IMPORTANT FIX HERE */}
       <Routes>
         <Route path="/" element={<CapturePage />} />
         <Route path="/slideshow" element={<SlideshowPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/setup-superuser" element={<SuperUserSetup />} />{" "}
+        {/* Add this line */}
         <Route
           path="/admin"
           element={
