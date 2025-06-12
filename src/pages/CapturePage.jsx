@@ -11,6 +11,8 @@ export default function CapturePage() {
   const [logo, setLogo] = useState("");
   const [pageTitle, setPageTitle] = useState("");
   const [logoLoaded, setLogoLoaded] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -66,6 +68,26 @@ export default function CapturePage() {
       }
     };
   }, [preview]);
+
+  const handleCountdownAndCapture = async () => {
+    let count = 3;
+    setCountdown(count);
+
+    const countdownInterval = setInterval(() => {
+      count -= 1;
+      if (count === 0) {
+        clearInterval(countdownInterval);
+        setCountdown(null);
+        setFlash(true);
+        setTimeout(() => {
+          setFlash(false);
+          takePhoto();
+        }, 100);
+      } else {
+        setCountdown(count);
+      }
+    }, 1000);
+  };
 
   const takePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -168,7 +190,6 @@ export default function CapturePage() {
           <p className="text-sm text-gray-500 mt-1 text-center">{pageTitle}</p>
         )}
 
-        {/* Preview Container */}
         <div className="relative w-full max-h-[700px] flex-1 min-h-0 overflow-hidden rounded-xl bg-gray-800 shadow-lg my-3">
           {preview ? (
             <img
@@ -197,7 +218,6 @@ export default function CapturePage() {
             </>
           )}
 
-          {/* Mirror Toggle */}
           {!preview && (
             <button
               onClick={toggleMirror}
@@ -207,11 +227,11 @@ export default function CapturePage() {
             </button>
           )}
 
-          {/* Action Buttons - Centered Inside Preview */}
+          {/* Action Buttons */}
           {!preview ? (
             <div className="absolute inset-0 flex justify-center items-center z-10 pointer-events-none">
               <button
-                onClick={takePhoto}
+                onClick={handleCountdownAndCapture}
                 disabled={!cameraActive}
                 className="w-20 h-20 rounded-full bg-white text-gray-900 text-2xl font-bold shadow-lg flex items-center justify-center hover:bg-gray-100 transition pointer-events-auto"
               >
@@ -233,6 +253,18 @@ export default function CapturePage() {
                 👎 Retake
               </button>
             </div>
+          )}
+
+          {/* Countdown Overlay */}
+          {countdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+              <div className="text-white text-7xl font-bold">{countdown}</div>
+            </div>
+          )}
+
+          {/* Flash Effect */}
+          {flash && (
+            <div className="absolute inset-0 bg-white opacity-100 animate-pulse z-30 pointer-events-none"></div>
           )}
         </div>
 
